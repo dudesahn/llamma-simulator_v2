@@ -103,26 +103,6 @@ def _ratio_square(A):
     return _ratio_value
 
 
-def _oracle_limit(price, old_price, old_dfee, dt, delay, min_ratio, max_change):
-    limited_price = price
-    ratio = 0.0
-
-    if dt > 0 and old_price > 0:
-        price_ratio = min(old_price, price) / max(old_price, price)
-        if price > old_price and price_ratio < min_ratio:
-            price_ratio = min_ratio
-            limited_price = old_price * max_change
-        elif price < old_price and price_ratio < min_ratio:
-            price_ratio = min_ratio
-            limited_price = old_price / max_change
-
-        ratio = ((1.0 + old_dfee) - price_ratio**3) * (dt / delay)
-        # The on-chain cap of 1 - 1e-18 rounds to 1.0 as a float.
-        ratio = min(max(ratio, 0.0), 1.0)
-
-    return limited_price, ratio
-
-
 class BandBalances:
     """Integer band balances with dense trading buffers and sparse overflow.
 
@@ -350,15 +330,26 @@ class LendingAMM:
 
     def _limit_price_oracle(self, price: float, timestamp: float | None) -> tuple[float, float]:
         timestamp = self._normalize_timestamp(timestamp)
-        return _oracle_limit(
-            price,
-            self.old_p_oracle,
-            self.old_dfee,
-            self._memory_dt(timestamp),
-            self.PREV_P_O_DELAY,
-            self.MIN_PRICE_RATIO,
-            self.MAX_P_O_CHANGE,
-        )
+        old_price = self.old_p_oracle
+        old_dfee = self.old_dfee
+        dt = self._memory_dt(timestamp)
+        limited_price = price
+        ratio = 0.0
+
+        if dt > 0 and old_price > 0:
+            price_ratio = min(old_price, price) / max(old_price, price)
+            if price > old_price and price_ratio < self.MIN_PRICE_RATIO:
+                price_ratio = self.MIN_PRICE_RATIO
+                limited_price = old_price * self.MAX_P_O_CHANGE
+            elif price < old_price and price_ratio < self.MIN_PRICE_RATIO:
+                price_ratio = self.MIN_PRICE_RATIO
+                limited_price = old_price / self.MAX_P_O_CHANGE
+
+            ratio = ((1.0 + old_dfee) - price_ratio**3) * (dt / self.PREV_P_O_DELAY)
+            # The on-chain cap of 1 - 1e-18 rounds to 1.0 as a float.
+            ratio = min(max(ratio, 0.0), 1.0)
+
+        return limited_price, ratio
 
     def _price_oracle_view(self, timestamp: float | None) -> tuple[float, float]:
         return self._limit_price_oracle(self.raw_p_oracle, timestamp)

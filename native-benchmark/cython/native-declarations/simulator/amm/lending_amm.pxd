@@ -15,10 +15,6 @@ cdef double _cube_price, _cube_value, _ratio_A, _ratio_value
 cpdef double _cube(double price) except? -1
 cpdef double _ratio_square(double A) except? -1
 
-@cython.locals(limited_price=cython.double, ratio=cython.double, price_ratio=cython.double)
-cpdef (double, double) _oracle_limit(double price, double old_price, double old_dfee,
-                                    double dt, double delay, double min_ratio, double max_change)
-
 @cython.final
 cdef class BandBalances:
     cdef double[::1] _values
