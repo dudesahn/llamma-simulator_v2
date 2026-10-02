@@ -360,8 +360,7 @@ class LendingAMM:
         )
 
     def _price_oracle_view(self, timestamp: float | None) -> tuple[float, float]:
-        price = self.raw_p_oracle if self.raw_p_oracle is not None else self.p_oracle
-        return self._limit_price_oracle(price, timestamp)
+        return self._limit_price_oracle(self.raw_p_oracle, timestamp)
 
     def _commit_oracle(self, snapshot: tuple[float, float]):
         self.old_p_oracle, self.old_dfee = snapshot
