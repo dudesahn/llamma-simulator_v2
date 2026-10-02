@@ -54,31 +54,25 @@ def _power(value, exponent):
     return value**exponent
 
 
-# One bounded geometry cache per process. The key includes every input;
-# changing AMM instances, A or p_base cannot reuse stale geometry.
-_top_A = 0.0
-_top_base = 0.0
+# One bounded geometry cache per process. Each cached band remembers the
+# p_base and A it was computed from, so other AMMs never reuse stale geometry.
+_top_bases = array("d", [0.0]) * 1002
+_top_As = array("d", [float("nan")]) * 1002
 _top_values = array("d", [0.0]) * 1002
 _top_squares = array("d", [0.0]) * 1002
-_top_valid = array("b", [0]) * 1002
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def _band_top(p_base, A, n):
-    global _top_A, _top_base
     if not -500 <= n <= 501:
         return p_base * _power((A - 1) / A, n)
-    if A != _top_A or p_base != _top_base:
-        for i in range(1002):
-            _top_valid[i] = 0
-        _top_A = A
-        _top_base = p_base
     i = n + 500
-    if not _top_valid[i]:
+    if _top_bases[i] != p_base or _top_As[i] != A:
         _top_values[i] = p_base * _power((A - 1) / A, n)
         _top_squares[i] = _power(_top_values[i], 2)
-        _top_valid[i] = 1
+        _top_bases[i] = p_base
+        _top_As[i] = A
     return _top_values[i]
 
 

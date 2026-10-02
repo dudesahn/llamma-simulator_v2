@@ -7,9 +7,7 @@ cpdef double _power(double value, double exponent) except? -1
 
 cpdef double fee_multiplier(double fee) except? -1
 
-cdef double _top_A, _top_base
-cdef double[::1] _top_values, _top_squares
-cdef signed char[::1] _top_valid
+cdef double[::1] _top_bases, _top_As, _top_values, _top_squares
 @cython.locals(i=cython.long)
 cpdef double _band_top(double p_base, double A, long n) except? -1
 
