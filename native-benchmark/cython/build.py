@@ -144,7 +144,7 @@ def build(commit, output, source=None, *, repository=REPOSITORY, profile=None, s
         builder_files += [ROOT / "pgo_training.py"] if recipe.get("pgo") else []
         identity = {"source": manifest, "profile": recipe,
                     "builder": {str(p.relative_to(ROOT)): sha(p) for p in builder_files}, "environment": environment}
-        config = {"modules": list(recipe["modules"]), "flags": lock["flags"], "language": "c++",
+        config = {"modules": list(recipe["modules"]), "flags": lock["flags"] + recipe.get("flags", []), "language": "c++",
                   "directives": recipe["directives"]}
         shutil.copy2(ROOT / "setup.py", staged / "setup.py")
         env = clean_environment(lock | {"source_date_epoch": manifest["source_date_epoch"]}, compiler)
