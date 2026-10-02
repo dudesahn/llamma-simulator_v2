@@ -87,6 +87,30 @@ def compatibility(directory, profile):
         check_requirements(project, "Upstream")
 
 
+def compile_extensions(directory, config, env, label="Cython"):
+    write_json(directory / "build-config.json", config)
+    with (directory / "build.log").open("w") as log:
+        process = subprocess.run([sys.executable, "-s", "setup.py", "build_ext", "--inplace"], cwd=directory, env=env,
+                                 stdout=log, stderr=subprocess.STDOUT)
+    if process.returncode:
+        raise Incompatible(f"{label} compilation failed; review source compatibility:\n" + (directory / "build.log").read_text()[-5000:])
+
+
+def train_profile(staged, config, env, work):
+    """Compile an instrumented copy, replay synthetic training windows and merge the counts."""
+    instrumented = work / "instrumented"
+    shutil.copytree(staged, instrumented)
+    compile_extensions(instrumented, config | {"flags": config["flags"] + ["-fprofile-instr-generate"],
+                                                "link_flags": ["-fprofile-instr-generate"]}, env, "Instrumented")
+    counts = work / "counts"
+    subprocess.run([sys.executable, "-s", str(ROOT / "pgo_training.py"), str(instrumented)], cwd=work, check=True,
+                   env=env | {"LLVM_PROFILE_FILE": str(counts / "%p.profraw")})
+    tool = ["xcrun", "llvm-profdata"] if platform.system() == "Darwin" else [shutil.which("llvm-profdata") or "llvm-profdata"]
+    subprocess.run([*tool, "merge", "--output", str(staged / "pgo.profdata"), *map(str, sorted(counts.glob("*.profraw")))],
+                   check=True)
+    return config | {"flags": config["flags"] + ["-fprofile-instr-use=pgo.profdata"]}
+
+
 def build(commit, output, source=None, *, repository=REPOSITORY, profile=None, source_manifest=None):
     check_commit(commit)
     output = Path(output).resolve()
@@ -117,24 +141,24 @@ def build(commit, output, source=None, *, repository=REPOSITORY, profile=None, s
                 shutil.copy2(ROOT / name, staged / (module.replace(".", "/") + ".pxd"))
         builder_files = [ROOT / name for name in ("build.py", "source.py", "setup.py", "toolchain.json", "pyproject.toml", "uv.lock")]
         builder_files += [ROOT / name for name in recipe["modules"].values() if name]
+        builder_files += [ROOT / "pgo_training.py"] if recipe.get("pgo") else []
         identity = {"source": manifest, "profile": recipe,
                     "builder": {str(p.relative_to(ROOT)): sha(p) for p in builder_files}, "environment": environment}
         config = {"modules": list(recipe["modules"]), "flags": lock["flags"], "language": "c++",
                   "directives": recipe["directives"]}
         shutil.copy2(ROOT / "setup.py", staged / "setup.py")
-        write_json(staged / "build-config.json", config)
         env = clean_environment(lock | {"source_date_epoch": manifest["source_date_epoch"]}, compiler)
-        with (staged / "build.log").open("w") as log:
-            process = subprocess.run([sys.executable, "-s", "setup.py", "build_ext", "--inplace"], cwd=staged, env=env,
-                                     stdout=log, stderr=subprocess.STDOUT)
-        if process.returncode:
-            raise Incompatible("Cython compilation failed; review source compatibility:\n" + (staged / "build.log").read_text()[-5000:])
+        if recipe.get("pgo"):
+            config = train_profile(staged, config, env, work)
+        compile_extensions(staged, config, env)
         verify_source(staged, manifest)
         suffix = sysconfig.get_config_var("EXT_SUFFIX")
         artifacts = {module.replace(".", "/") + suffix: sha(staged / (module.replace(".", "/") + suffix))
                      for module in recipe["modules"]}
         generated = {module.replace(".", "/") + ".cpp": sha(staged / (module.replace(".", "/") + ".cpp"))
                      for module in recipe["modules"]}
+        if recipe.get("pgo"):
+            generated["pgo.profdata"] = sha(staged / "pgo.profdata")
         record = {"schema": 2, "identity": identity, "build_id": digest(identity), "artifacts": artifacts,
                   "artifact_hash": digest(artifacts), "generated": generated}
         write_json(staged / "source.json", manifest)
