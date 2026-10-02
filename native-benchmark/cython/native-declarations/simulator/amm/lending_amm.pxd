@@ -56,6 +56,7 @@ cdef class LendingAMM:
     @cython.locals(price=cython.double, fee=cython.double, timestamp=cython.double)
     cpdef void restore_oracle_state(self, state) except *
     cpdef void set_p_oracle(self, double p, timestamp=*)
+    @cython.locals(snapshot=(cython.double, cython.double))
     cpdef (double, double) _observe(self, double p, timestamp=*)
     @cython.locals(p_oracle=cython.double, oracle_memory_fee=cython.double,
                    fee_with_memory=cython.double, distance_fee=cython.double)
@@ -103,7 +104,8 @@ cdef class LendingAMM:
                    antifee=cython.double,
                    n=cython.long, original_band=cython.long, bstep=cython.long, Inv=cython.double,
                    original_price=cython.double, x_dest=cython.double, y_dest=cython.double,
-                   x_old=cython.double, y_old=cython.double, delta_x=cython.double, delta_y=cython.double)
+                   x_old=cython.double, y_old=cython.double, delta_x=cython.double, delta_y=cython.double,
+                   snapshot=(cython.double, cython.double))
     cpdef (double, double) trade_to_price(self, double price)
     @cython.locals(x=cython.double, y=cython.double, p_o=cython.double, p_o_up=cython.double,
                    p_o_down=cython.double, p_current_mid=cython.double, sqrt_band_ratio=cython.double,
