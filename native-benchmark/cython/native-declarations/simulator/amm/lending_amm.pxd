@@ -7,7 +7,7 @@ cpdef double sqrt(double value) except? -1
 
 cpdef double fee_multiplier(double fee) except? -1
 
-cdef double[::1] _top_bases, _top_As, _top_values, _top_squares
+cdef double _top_bases[1002], _top_As[1002], _top_values[1002], _top_squares[1002]
 @cython.locals(i=cython.long)
 cpdef double _band_top(double p_base, double A, long n) except? -1
 
