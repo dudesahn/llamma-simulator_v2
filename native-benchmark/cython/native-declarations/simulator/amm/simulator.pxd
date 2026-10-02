@@ -1,5 +1,5 @@
 import cython
-from simulator.amm.lending_amm cimport LendingAMM, find_target_price
+from simulator.amm.lending_amm cimport LendingAMM, fee_multiplier, find_target_price
 
 @cython.locals(amm=LendingAMM, i=cython.Py_ssize_t, timestamp=cython.double,
                oracle_price=cython.double, p0=cython.double, initial_y0=cython.double,
@@ -7,7 +7,7 @@ from simulator.amm.lending_amm cimport LendingAMM, find_target_price
                high=cython.double, low=cython.double, high_external=cython.double,
                low_external=cython.double, loss=cython.double, external_fee=cython.double,
                log_enabled=cython.bint, verbose=cython.bint,
-               snapshot=(cython.double, cython.double))
+               snapshot=(cython.double, cython.double), current_price=cython.double, antifee=cython.double)
 cpdef double _calculate_loss(
     simulator, double A, double fee,
     const double[:, :] prices_for_simulation, const double[:] oracle_prices_for_simulation,
