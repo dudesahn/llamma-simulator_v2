@@ -1,0 +1,13 @@
+{
+  "status": "verified",
+  "commit": "acc3cd86bb0ea1b6292b0a85fc316161ee24e5cd",
+  "reproducibility": "not requested",
+  "pipeline_sha256": "23f4c97d47b29cc3a6a6d6939ee77c94b8349b2cc7b0a307b7ac29b5ef5db89c",
+  "build_id": "449ffb35d2983b037d9d9f58312558cf444d352774b0be09957cf6f16b9ffed3",
+  "artifact_hash": "ae67ecf5d15815caeaa0525322155b946d7b0f114f565e85afd36a2a268e76a4",
+  "verification": {
+    "path": "validation/verification.json",
+    "sha256": "89bd5d9cb81109d6162449b007101f62c305c45ad02863eafb88e18c4b4e555b"
+  },
+  "evidence_id": "f9c2808dc2dbca71062b2f5828a54c729a26762e0677905ba73a2a8a6850fe3d"
+}

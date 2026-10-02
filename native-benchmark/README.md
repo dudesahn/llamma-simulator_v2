@@ -12,6 +12,17 @@ The candidate already has typed numeric helpers, exact-input caches, numeric ban
 
 The [fresh handoff verification](reference-results/README.md) reproduces the earlier loss arrays exactly, with about 27x the one-worker throughput of Curve Python and a remaining 3.8x gap to Phil. It includes per-market timings, ordered outputs and build identities.
 
+## Search branch results
+
+`codex/claude-native-search` continues from this kit. Its final commit runs the frozen workload in **0.0510 s** with one worker and **0.0162 s** with four. That is 96x Curve Python and 1.08x slower than Phil (1.11x with four workers); on the LP market it beats Phil. Interpreted fork Python takes 48% less time than Curve Python. Losses stay within `5e-14` and are bitwise identical to the handoff candidate's. Per-commit timings, evidence files and the toolchain are in [search-results](search-results/README.md). The table below remains the handoff reference.
+
+The builder now has two candidate profiles:
+
+- `native` (default) adds Cython's `cpow` directive and a profile-guided optimization pass. `cython/pgo_training.py` replays seeded synthetic windows through an instrumented build; it never reads the frozen benchmark inputs. The merged profile is hashed into `build.json`, and clean builds stay byte-identical.
+- `native-exact` (`prepare.py candidate --profile native-exact`) also passes `-fno-builtin-pow`, so clang keeps every libm `pow()` call. Compiled losses then match interpreted Python bit for bit, at about 2.2x the default runtime.
+
+The builder reads declarations and profiles from the current checkout. To rebuild an older commit, run that commit's own kit, for example from a temporary `git worktree`.
+
 ## Reproduce
 
 **Use your own hardware and compiler.** Matching our machine, compiler or absolute timings is not required. Establish local baselines for every backend and compare optimizations on that same machine, keeping your chosen environment stable and recording it with the results.
