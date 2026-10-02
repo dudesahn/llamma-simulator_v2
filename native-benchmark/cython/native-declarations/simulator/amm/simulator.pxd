@@ -7,7 +7,8 @@ from simulator.amm.lending_amm cimport LendingAMM, fee_multiplier, find_target_p
                high=cython.double, low=cython.double, high_external=cython.double,
                low_external=cython.double, loss=cython.double, external_fee=cython.double,
                log_enabled=cython.bint, verbose=cython.bint,
-               snapshot=(cython.double, cython.double), current_price=cython.double, antifee=cython.double)
+               snapshot=(cython.double, cython.double), current_price=cython.double, antifee=cython.double,
+               lower_price=cython.double, upper_price=cython.double)
 cpdef double _calculate_loss(
     simulator, double A, double fee,
     const double[:, :] prices_for_simulation, const double[:] oracle_prices_for_simulation,

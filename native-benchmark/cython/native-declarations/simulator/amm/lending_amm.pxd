@@ -84,8 +84,10 @@ cdef class LendingAMM:
     cpdef double get_g(self, y0=*, n=*) except? -1
     cpdef double _get_f(self, double value, long band) except? -1
     cpdef double _get_g(self, double value, long band) except? -1
-    @cython.locals(value=cython.double, x=cython.double, y=cython.double)
     cpdef double get_p(self, y0=*) except? -1
+    @cython.locals(value=cython.double, x=cython.double, y=cython.double, price=cython.double,
+                   lower_price=cython.double, upper_price=cython.double)
+    cpdef (double, double, double) _trade_prices(self, y0=*)
     cpdef void _commit_oracle(self, (double, double) snapshot)
     @cython.locals(x=cython.double, y=cython.double, y0=cython.double, f=cython.double, g=cython.double,
                    p_o=cython.double, current_price=cython.double,
@@ -94,7 +96,7 @@ cdef class LendingAMM:
                    n=cython.long, original_band=cython.long, bstep=cython.long, Inv=cython.double,
                    original_price=cython.double, x_dest=cython.double, y_dest=cython.double,
                    x_old=cython.double, y_old=cython.double, delta_x=cython.double, delta_y=cython.double,
-                   snapshot=(cython.double, cython.double))
+                   snapshot=(cython.double, cython.double), lower_price=cython.double, upper_price=cython.double)
     cpdef (double, double) trade_to_price(self, double price)
     @cython.locals(x=cython.double, y=cython.double, p_o=cython.double, p_o_up=cython.double,
                    p_o_down=cython.double, p_current_mid=cython.double, sqrt_band_ratio=cython.double,
