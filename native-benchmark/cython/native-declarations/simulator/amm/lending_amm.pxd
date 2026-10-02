@@ -1,6 +1,8 @@
 # Types and native dispatch only. Financial formulas live in the pinned .py file.
 import cython
 
+cdef double NO_TIMESTAMP
+
 cpdef double sqrt(double value) except? -1
 
 cpdef double fee_multiplier(double fee) except? -1
@@ -40,7 +42,7 @@ cdef class LendingAMM:
     cdef public BandBalances bands_x, bands_y
     cdef public long min_band, max_band
     cdef public long active_band
-    cdef public object current_timestamp, prev_p_oracle_time
+    cdef double _current_timestamp, _prev_p_oracle_time
     cdef public double raw_p_oracle, p_base, p_oracle, prev_p_oracle, old_p_oracle, old_dfee
     cdef public double fee, dynamic_fee_multiplier
 
@@ -49,18 +51,18 @@ cdef class LendingAMM:
     cpdef void restore_oracle_state(self, state) except *
     cpdef void set_p_oracle(self, double p, timestamp=*)
     @cython.locals(snapshot=(cython.double, cython.double))
-    cpdef (double, double) _observe(self, double p, timestamp=*)
+    cpdef (double, double) _observe(self, double p, double timestamp)
     @cython.locals(p_oracle=cython.double, oracle_memory_fee=cython.double,
                    fee_with_memory=cython.double, distance_fee=cython.double)
     cpdef double dynamic_fee(self, long n_band, timestamp=*) except? -1
     cpdef double _dynamic_fee(self, long n_band, double p_oracle, double oracle_memory_fee) except? -1
-    cpdef _normalize_timestamp(self, timestamp)
-    @cython.locals(elapsed=cython.double, current=cython.double, previous=cython.double, delay=cython.double)
-    cpdef double _memory_dt(self, timestamp) except? -1
+    cpdef double _normalize_timestamp(self, double timestamp) except? -1
+    @cython.locals(elapsed=cython.double)
+    cpdef double _memory_dt(self, double timestamp) except? -1
     @cython.locals(old_price=cython.double, old_dfee=cython.double, dt=cython.double,
                    limited_price=cython.double, ratio=cython.double, price_ratio=cython.double)
-    cpdef (double, double) _limit_price_oracle(self, double price, timestamp)
-    cpdef (double, double) _price_oracle_view(self, timestamp)
+    cpdef (double, double) _limit_price_oracle(self, double price, double timestamp)
+    cpdef (double, double) _price_oracle_view(self, double timestamp)
     @cython.locals(p_o_up=cython.double, p_c_d=cython.double, band_ratio=cython.double, p_c_u=cython.double)
     cpdef double _distance_fee(self, double p_oracle, long n_band) except? -1
     @cython.locals(k=cython.double, p_base=cython.double, price=cython.double)

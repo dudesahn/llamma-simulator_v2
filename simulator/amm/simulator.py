@@ -227,6 +227,8 @@ class Simulator:
         oracles = np.asarray(oracle_prices_for_simulation, dtype=np.float64)
         if candles.ndim != 2 or candles.shape[1] != 6 or oracles.ndim != 1:
             raise ValueError("Replay requires six candle columns and one oracle column")
+        if not np.isfinite(candles[:, 0]).all():
+            raise ValueError("Oracle observations require positive prices and nondecreasing finite timestamps")
         return _calculate_loss(
             self,
             A,

@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from simulator.amm.intitial_liquidity import ConstantInitialLiquidity
-from simulator.amm.lending_amm import LendingAMM, OracleState
+from simulator.amm.lending_amm import NO_TIMESTAMP, LendingAMM, OracleState
 from simulator.amm.simulator import Simulator
 
 WAD = 10**18
@@ -40,7 +40,7 @@ class OracleMemoryTest(unittest.TestCase):
             amm.dynamic_fee(1, t)
             amm._price_oracle_view(t)
         self.assertEqual(vars(amm), before)
-        self.assertEqual(amm._price_oracle_view(None), amm._price_oracle_view(30))
+        self.assertEqual(amm._price_oracle_view(NO_TIMESTAMP), amm._price_oracle_view(30))
 
     def test_extra_observations_do_not_change_exchange(self):
         sparse, frequent = position(), position()
