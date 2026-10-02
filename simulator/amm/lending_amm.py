@@ -107,8 +107,6 @@ class BandBalances:
         self.highest = -501
         self._overflow = {}
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def read(self, n):
         if -500 <= n <= 500:
             if not self._present[n + 500]:
@@ -116,8 +114,6 @@ class BandBalances:
             return self._values[n + 500]
         return self._overflow.setdefault(n, 0.0)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def write(self, n, value):
         if -500 <= n <= 500:
             if not self._present[n + 500]:
@@ -126,22 +122,16 @@ class BandBalances:
         else:
             self._overflow[n] = value
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def has(self, n):
         if -500 <= n <= 500:
             return self._present[n + 500]
         return n in self._overflow
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def _represent(self, n):
         self._present[n + 500] = 1
         self.lowest = min(self.lowest, n)
         self.highest = max(self.highest, n)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def clear(self):
         for n in range(self.lowest, self.highest + 1):
             self._values[n + 500] = 0.0

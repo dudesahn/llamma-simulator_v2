@@ -17,8 +17,8 @@ cpdef double _ratio_square(double A) except? -1
 
 @cython.final
 cdef class BandBalances:
-    cdef double[::1] _values
-    cdef signed char[::1] _present
+    cdef double _values[1001]
+    cdef signed char _present[1001]
     cdef readonly long lowest, highest
     cdef dict _overflow
     cpdef double read(self, long n) except? -1
