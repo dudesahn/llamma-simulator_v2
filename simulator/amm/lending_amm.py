@@ -53,35 +53,20 @@ def fee_multiplier(fee: float) -> float:
     return 1 / max(1 - fee, 1e-18)
 
 
-# One bounded geometry cache per process. Each cached band remembers the
-# p_base and A it was computed from, so other AMMs never reuse stale geometry.
-_top_bases = array("d", [0.0]) * 1002
-_top_As = array("d", [float("nan")]) * 1002
-_top_values = array("d", [0.0]) * 1002
-_top_squares = array("d", [0.0]) * 1002
+# Cache the dimensionless band factor ((A - 1) / A) ** n. Each slot remembers its A,
+# so a new base price reuses it and a different A recomputes it.
+_factor_As = array("d", [float("nan")]) * 1002
+_factors = array("d", [0.0]) * 1002
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def _band_top(p_base, A, n):
+def _band_factor(A, n):
     if not -500 <= n <= 501:
-        return p_base * ((A - 1) / A) ** n
+        return ((A - 1) / A) ** n
     i = n + 500
-    if _top_bases[i] != p_base or _top_As[i] != A:
-        _top_values[i] = p_base * ((A - 1) / A) ** n
-        _top_squares[i] = _top_values[i] ** 2
-        _top_bases[i] = p_base
-        _top_As[i] = A
-    return _top_values[i]
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def _band_square(p_base, A, n):
-    top = _band_top(p_base, A, n)
-    if -500 <= n <= 501:
-        return _top_squares[n + 500]
-    return top**2
+    if _factor_As[i] != A:
+        _factors[i] = ((A - 1) / A) ** n
+        _factor_As[i] = A
+    return _factors[i]
 
 
 # Last-value caches are separate from persistent exchange memory.
@@ -377,7 +362,7 @@ class LendingAMM:
             return 0.0
 
         # Matches on-chain: p_c_d = p_o**3 / p_o_up**2, p_c_u = p_c_d * (A / (A-1))**2
-        p_c_d = _cube(p_oracle) / _band_square(self.p_base, self.A, n_band)
+        p_c_d = _cube(p_oracle) / p_o_up**2
         p_c_u = p_c_d * _ratio_square(self.A)
 
         if p_oracle < p_c_d and p_c_d > 0:
@@ -394,7 +379,7 @@ class LendingAMM:
             price = self.p_oracle
         else:
             price = p_oracle
-        return _cube(price) / _band_square(self.p_base, self.A, n_band)
+        return _cube(price) / self.p_top(n_band) ** 2
 
     def p_up(self, n_band, p_oracle: float | None = None):
         """
@@ -404,11 +389,11 @@ class LendingAMM:
             price = self.p_oracle
         else:
             price = p_oracle
-        return _cube(price) / _band_square(self.p_base, self.A, n_band + 1)
+        return _cube(price) / self.p_top(n_band + 1) ** 2
 
     def p_top(self, n):
         # Prices which show start and end of band when p_oracle = p
-        return _band_top(self.p_base, self.A, n)
+        return self.p_base * _band_factor(self.A, n)
 
     def p_bottom(self, n):
         k = (self.A - 1) / self.A  # equal to (p_down / p_up)
