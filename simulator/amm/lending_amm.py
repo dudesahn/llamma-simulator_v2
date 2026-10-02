@@ -49,11 +49,6 @@ def fee_multiplier(fee: float) -> float:
     return 1 / max(1 - fee, 1e-18)
 
 
-def _power(value, exponent):
-    # A runtime exponent preserves Python's libm pow rounding in native builds.
-    return value**exponent
-
-
 # One bounded geometry cache per process. Each cached band remembers the
 # p_base and A it was computed from, so other AMMs never reuse stale geometry.
 _top_bases = array("d", [0.0]) * 1002
@@ -66,11 +61,11 @@ _top_squares = array("d", [0.0]) * 1002
 @cython.wraparound(False)
 def _band_top(p_base, A, n):
     if not -500 <= n <= 501:
-        return p_base * _power((A - 1) / A, n)
+        return p_base * ((A - 1) / A) ** n
     i = n + 500
     if _top_bases[i] != p_base or _top_As[i] != A:
-        _top_values[i] = p_base * _power((A - 1) / A, n)
-        _top_squares[i] = _power(_top_values[i], 2)
+        _top_values[i] = p_base * ((A - 1) / A) ** n
+        _top_squares[i] = _top_values[i] ** 2
         _top_bases[i] = p_base
         _top_As[i] = A
     return _top_values[i]
@@ -82,7 +77,7 @@ def _band_square(p_base, A, n):
     top = _band_top(p_base, A, n)
     if -500 <= n <= 501:
         return _top_squares[n + 500]
-    return _power(top, 2)
+    return top**2
 
 
 # Last-value caches are separate from persistent exchange memory.
@@ -95,7 +90,7 @@ _ratio_value = 0.0
 def _cube(price):
     global _cube_price, _cube_value
     if price != _cube_price:
-        _cube_value = _power(price, 3)
+        _cube_value = price**3
         _cube_price = price
     return _cube_value
 
@@ -103,7 +98,7 @@ def _cube(price):
 def _ratio_square(A):
     global _ratio_A, _ratio_value
     if A != _ratio_A:
-        _ratio_value = _power(A / (A - 1), 2)
+        _ratio_value = (A / (A - 1)) ** 2
         _ratio_A = A
     return _ratio_value
 
@@ -121,7 +116,7 @@ def _oracle_limit(price, old_price, old_dfee, dt, delay, min_ratio, max_change):
             price_ratio = min_ratio
             limited_price = old_price / max_change
 
-        ratio = ((1.0 + old_dfee) - _power(price_ratio, 3)) * (dt / delay)
+        ratio = ((1.0 + old_dfee) - price_ratio**3) * (dt / delay)
         # The on-chain cap of 1 - 1e-18 rounds to 1.0 as a float.
         ratio = min(max(ratio, 0.0), 1.0)
 
@@ -467,8 +462,8 @@ class LendingAMM:
         # solve:
         # p_o * A * y0**2 - y0 * (p_top/p_o * (A-1) * x + p_o**2/p_top * A * y) - xy = 0
         a = p_o * A
-        b = p_top / p_o * (A - 1) * x + _power(p_o, 2) / p_top * A * y
-        D = _power(b, 2) + 4 * a * x * y
+        b = p_top / p_o * (A - 1) * x + p_o**2 / p_top * A * y
+        D = b**2 + 4 * a * x * y
         return (b + sqrt(D)) / (2 * a)
 
     def get_f(self, y0=None, n=None):
@@ -485,7 +480,7 @@ class LendingAMM:
     def _get_f(self, value, band):
         p_top = self.p_top(band)
         p_oracle = self.p_oracle
-        return value * _power(p_oracle, 2) / p_top * self.A
+        return value * p_oracle**2 / p_top * self.A
 
     def get_g(self, y0=None, n=None):
         if y0 is None:
@@ -520,7 +515,7 @@ class LendingAMM:
         ):
             return _price_value
         if x == 0 and y == 0:
-            result = _power(self.p_up(self.active_band) * self.p_down(self.active_band), 0.5)
+            result = (self.p_up(self.active_band) * self.p_down(self.active_band)) ** 0.5
         else:
             if y0 is None:
                 value = self.get_y0()
@@ -605,7 +600,7 @@ class LendingAMM:
                     break
 
                 # reduce y, increase x, go up
-                y_dest = _power(Inv / price, 0.5) - g
+                y_dest = (Inv / price) ** 0.5 - g
                 x_old = self.bands_x.read(n)
                 if y_dest >= 0:
                     # End the cycle
@@ -630,7 +625,7 @@ class LendingAMM:
                     break
 
                 # increase y, reduce x, go down
-                x_dest = _power(Inv * price, 0.5) - f
+                x_dest = (Inv * price) ** 0.5 - f
                 y_old = self.bands_y.read(n)
                 if x_dest >= 0:
                     # End the cycle
@@ -670,7 +665,7 @@ class LendingAMM:
         p_o = self.p_oracle
         p_o_up = self.p_top(n)
         p_o_down = p_o_up * (self.A - 1) / self.A
-        p_current_mid = _power(p_o, 3) / _power(p_o_down, 2) * (self.A - 1) / self.A
+        p_current_mid = p_o**3 / p_o_down**2 * (self.A - 1) / self.A
         sqrt_band_ratio = sqrt(self.A / (self.A - 1))
 
         if x == 0 or y == 0:
@@ -729,7 +724,7 @@ class LendingAMM:
         p_o = self.p_oracle
         p_o_up = self.p_top(n)
         p_o_down = p_o_up * (self.A - 1) / self.A
-        p_current_mid = _power(p_o, 3) / _power(p_o_down, 2) * (self.A - 1) / self.A
+        p_current_mid = p_o**3 / p_o_down**2 * (self.A - 1) / self.A
         sqrt_band_ratio = sqrt(self.A / (self.A - 1))
 
         if x == 0 or y == 0:

@@ -3,8 +3,6 @@ import cython
 
 cpdef double sqrt(double value) except? -1
 
-cpdef double _power(double value, double exponent) except? -1
-
 cpdef double fee_multiplier(double fee) except? -1
 
 cdef double[::1] _top_bases, _top_As, _top_values, _top_squares
