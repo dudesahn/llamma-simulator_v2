@@ -50,8 +50,8 @@ cdef class LendingAMM:
     cdef public double fee, dynamic_fee_multiplier
 
     cpdef void reset(self, double p_base, double A, double fee, dynamic_fee_multiplier=*, oracle_state=*) except *
-    @cython.locals(price=cython.double, fee=cython.double, timestamp=cython.double)
     cpdef void restore_oracle_state(self, state) except *
+    cpdef void _restore_oracle(self, double price, double fee, double timestamp) except *
     cpdef void set_p_oracle(self, double p, timestamp=*)
     cpdef double _observe(self, double p, double timestamp, bint missing=*) except? -1
     @cython.locals(p_oracle=cython.double, oracle_memory_fee=cython.double)

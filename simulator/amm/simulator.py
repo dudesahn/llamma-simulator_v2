@@ -38,17 +38,17 @@ def _calculate_loss(
         raise ValueError("Replay requires nonempty, aligned candles and oracle observations")
     timestamp = float(prices_for_simulation[0, 0])
     oracle_price = float(oracle_prices_for_simulation[0])
-    if initial_state is None:
-        # Synthetic windows start with zero memory; observations do not
-        # reveal the exchanges needed to reconstruct earlier AMM memory.
-        initial_state = OracleState.initial(oracle_price, timestamp)
-    if initial_state.prev_p_oracle_time > timestamp:
+    if initial_state is not None and initial_state.prev_p_oracle_time > timestamp:
         raise ValueError("Starting oracle state is later than the first candle")
     if workspace is None:
         amm = LendingAMM(oracle_price, A, fee, dynamic_fee_multiplier, oracle_state=initial_state)
     else:
         amm = workspace
         amm.reset(oracle_price, A, fee, dynamic_fee_multiplier, initial_state)
+    if initial_state is None:
+        # Synthetic windows start with zero memory (OracleState.initial); observations
+        # do not reveal the exchanges needed to reconstruct earlier AMM memory.
+        amm._restore_oracle(oracle_price, 0.0, timestamp)
     memory_fee = amm._observe(oracle_price, timestamp=timestamp)
     oracle_now = amm.p_oracle
     if table_row >= 0:

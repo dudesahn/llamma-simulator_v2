@@ -287,9 +287,9 @@ class LendingAMM:
         return OracleState(*(getattr(self, field) for field in OracleState._fields))
 
     def restore_oracle_state(self, state: OracleState):
-        price = state.old_p_oracle
-        fee = state.old_dfee
-        timestamp = state.prev_p_oracle_time
+        self._restore_oracle(state.old_p_oracle, state.old_dfee, state.prev_p_oracle_time)
+
+    def _restore_oracle(self, price, fee, timestamp):
         if not isfinite(price) or not isfinite(fee) or not isfinite(timestamp) or price <= 0 or not 0 <= fee <= 1:
             raise ValueError("Invalid oracle state")
         self.old_p_oracle = price
@@ -464,7 +464,8 @@ class LendingAMM:
         assert p1 <= self.p_oracle and p2 <= self.p_oracle
         n1 = self.get_band_n(p1)
         n2 = self.get_band_n(p2)
-        n1, n2 = sorted([n1, n2])
+        if n2 < n1:
+            n1, n2 = n2, n1
         y = amount / (n2 - n1 + 1)
         self.min_band = min(n1, n2)
         self.max_band = max(n1, n2)
@@ -677,7 +678,7 @@ class LendingAMM:
         p_o = self.p_oracle
         p_o_up = self.p_top(n)
         p_o_down = p_o_up * (self.A - 1) / self.A
-        p_current_mid = p_o**3 / p_o_down**2 * (self.A - 1) / self.A
+        p_current_mid = _cube(p_o) / p_o_down**2 * (self.A - 1) / self.A
         sqrt_band_ratio = sqrt(self.A / (self.A - 1))
 
         if x == 0 or y == 0:
@@ -736,7 +737,7 @@ class LendingAMM:
         p_o = self.p_oracle
         p_o_up = self.p_top(n)
         p_o_down = p_o_up * (self.A - 1) / self.A
-        p_current_mid = p_o**3 / p_o_down**2 * (self.A - 1) / self.A
+        p_current_mid = _cube(p_o) / p_o_down**2 * (self.A - 1) / self.A
         sqrt_band_ratio = sqrt(self.A / (self.A - 1))
 
         if x == 0 or y == 0:
