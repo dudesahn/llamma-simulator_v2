@@ -83,11 +83,38 @@ _cube_value = 0.0
 _ratio_A = 0.0
 _ratio_value = 0.0
 
+# A batch replay revisits each oracle row once per position, so it can keep each
+# row's cube in a table. _cube_row() names the row being replayed; _cube() uses
+# its entry, filling it on first use, when asked for that row's oracle price.
+_row_cubes = None
+_row = 0
+_row_price = float("nan")  # matches no price while no row is named
+
+
+def _use_cube_table(cubes):
+    """Share cubes across replays of the same rows; None stops using a table."""
+    global _row_cubes, _row_price
+    _row_cubes = cubes
+    _row_price = float("nan")
+
+
+def _cube_row(price, row):
+    global _row, _row_price
+    _row = row
+    _row_price = price
+
 
 def _cube(price):
     global _cube_price, _cube_value
     if price != _cube_price:
-        _cube_value = price**3
+        if price == _row_price:
+            value = float(_row_cubes[_row])
+            if value != value:  # not yet computed
+                value = price**3
+                _row_cubes[_row] = value
+            _cube_value = value
+        else:
+            _cube_value = price**3
         _cube_price = price
     return _cube_value
 

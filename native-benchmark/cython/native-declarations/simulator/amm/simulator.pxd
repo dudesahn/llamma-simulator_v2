@@ -1,5 +1,5 @@
 import cython
-from simulator.amm.lending_amm cimport LendingAMM, OracleSnapshot, fee_multiplier, find_target_price
+from simulator.amm.lending_amm cimport LendingAMM, OracleSnapshot, fee_multiplier, find_target_price, _cube_row, _use_cube_table
 
 @cython.locals(amm=LendingAMM, i=cython.Py_ssize_t, timestamp=cython.double,
                oracle_price=cython.double, p0=cython.double, initial_y0=cython.double,
@@ -13,9 +13,9 @@ cpdef double _calculate_loss(
     simulator, double A, double fee,
     const double[:, :] prices_for_simulation, const double[:] oracle_prices_for_simulation,
     long initial_liquidity_range, dynamic_fee_multiplier=*, double position_shift=*,
-    initial_state=*, workspace=*, external_fee_override=*
+    initial_state=*, workspace=*, external_fee_override=*, long table_row=*
 ) except? -1
 
 @cython.locals(i=cython.Py_ssize_t, lo=cython.Py_ssize_t, hi=cython.Py_ssize_t,
-               output=cython.double[:], workspace=LendingAMM)
+               output=cython.double[:], workspace=LendingAMM, share_cubes=cython.bint)
 cpdef replay_batch(simulator, const double[:, :] points, const double[:, :] records)

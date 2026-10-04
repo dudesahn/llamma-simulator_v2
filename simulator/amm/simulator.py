@@ -4,11 +4,12 @@ from datetime import datetime
 from math import isfinite
 from multiprocessing import Pool
 
+import cython
 import numpy as np
 import psutil
 
 from .intitial_liquidity import BaseRangeInitialLiquidity
-from .lending_amm import LendingAMM, OracleState, fee_multiplier, find_target_price
+from .lending_amm import LendingAMM, OracleState, _cube_row, _use_cube_table, fee_multiplier, find_target_price
 from .price_history_loader import BasePriceHistoryLoader, VolatilityPriceHistoryLoader
 from .price_oracle import BasePriceOracle
 
@@ -27,8 +28,12 @@ def _calculate_loss(
     initial_state: OracleState | None = None,
     workspace=None,
     external_fee_override=None,
+    table_row=-1,
 ):
-    """Replay one position from numeric candles and aligned oracle observations."""
+    """Replay one position from numeric candles and aligned oracle observations.
+
+    A nonnegative table_row is the cube-table row (see _use_cube_table) of the first candle.
+    """
     if len(prices_for_simulation) == 0 or len(prices_for_simulation) != len(oracle_prices_for_simulation):
         raise ValueError("Replay requires nonempty, aligned candles and oracle observations")
     timestamp = float(prices_for_simulation[0, 0])
@@ -45,6 +50,8 @@ def _calculate_loss(
         amm = workspace
         amm.reset(oracle_price, A, fee, dynamic_fee_multiplier, initial_state)
     snapshot = amm._observe(oracle_price, timestamp=timestamp)
+    if table_row >= 0:
+        _cube_row(oracle_price, table_row)
     p0 = amm.p_oracle * (1 - position_shift)
 
     initial_y0 = 1.0  # 1 ETH
@@ -70,6 +77,8 @@ def _calculate_loss(
         oracle_price = float(oracle_prices_for_simulation[i])
         if i:
             snapshot = amm._observe(oracle_price, timestamp=t)
+            if table_row >= 0:
+                _cube_row(oracle_price, table_row + i)
 
         high_external = high * (1 - external_fee)
         low_external = low * (1 + external_fee)
@@ -458,20 +467,29 @@ def replay_batch(simulator, points, records):
     values = np.empty(len(records), dtype=np.float64)
     output = values  # The native profile exposes this array as a typed view.
     workspace = LendingAMM(1.0, 2, 0.0)
-    for i in range(len(records)):
-        lo = int(records[i, 2])
-        hi = int(records[i, 3])
-        output[i] = _calculate_loss(
-            simulator,
-            float(records[i, 0]),
-            float(records[i, 1]),
-            points[lo:hi, :6],
-            points[lo:hi, 6],
-            int(records[i, 4]),
-            float(records[i, 6]),
-            position_shift=0.0,
-            initial_state=None,
-            workspace=workspace,
-            external_fee_override=float(records[i, 5]),
-        )
+    # Windows of one batch overlap, so compiled builds share each row's oracle
+    # cube. Interpreted, a table lookup costs about as much as the power it saves.
+    share_cubes = cython.compiled
+    if share_cubes:
+        _use_cube_table(np.full(len(points), np.nan))
+    try:
+        for i in range(len(records)):
+            lo = int(records[i, 2])
+            hi = int(records[i, 3])
+            output[i] = _calculate_loss(
+                simulator,
+                float(records[i, 0]),
+                float(records[i, 1]),
+                points[lo:hi, :6],
+                points[lo:hi, 6],
+                int(records[i, 4]),
+                float(records[i, 6]),
+                position_shift=0.0,
+                initial_state=None,
+                workspace=workspace,
+                external_fee_override=float(records[i, 5]),
+                table_row=lo if share_cubes else -1,
+            )
+    finally:
+        _use_cube_table(None)
     return values

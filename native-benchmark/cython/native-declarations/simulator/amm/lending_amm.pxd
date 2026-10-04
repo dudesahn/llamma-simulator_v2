@@ -14,6 +14,12 @@ cdef double _factor_As[1002], _factors[1002]
 @cython.locals(i=cython.long)
 cpdef double _band_factor(double A, long n) except? -1
 cdef double _cube_price, _cube_value, _ratio_A, _ratio_value
+cdef double[:] _row_cubes
+cdef long _row
+cdef double _row_price
+cpdef void _use_cube_table(cubes) except *
+cpdef void _cube_row(double price, long row) noexcept
+@cython.locals(value=cython.double)
 cpdef double _cube(double price) except? -1
 cpdef double _ratio_square(double A) except? -1
 
