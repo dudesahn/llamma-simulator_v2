@@ -13,7 +13,7 @@ cpdef double fee_multiplier(double fee) except? -1
 cdef double _factor_As[1002], _factors[1002]
 @cython.locals(i=cython.long)
 cpdef double _band_factor(double A, long n) except? -1
-cdef double _cube_price, _cube_value, _ratio_A, _ratio_value
+cdef double _cube_price, _cube_value, _ratio_A, _ratio_value, _limit_fee
 cdef double[:] _row_cubes
 cdef long _row
 cdef double _row_price
@@ -53,8 +53,7 @@ cdef class LendingAMM:
     @cython.locals(price=cython.double, fee=cython.double, timestamp=cython.double)
     cpdef void restore_oracle_state(self, state) except *
     cpdef void set_p_oracle(self, double p, timestamp=*)
-    @cython.locals(snapshot=OracleSnapshot)
-    cpdef (double, double) _observe(self, double p, double timestamp, bint missing=*)
+    cpdef double _observe(self, double p, double timestamp, bint missing=*) except? -1
     @cython.locals(p_oracle=cython.double, oracle_memory_fee=cython.double)
     cpdef double dynamic_fee(self, long n_band, timestamp=*) except? -1
     @cython.locals(fee_with_memory=cython.double, distance_fee=cython.double)
@@ -62,9 +61,11 @@ cdef class LendingAMM:
     cpdef double _normalize_timestamp(self, double timestamp) except? -1
     @cython.locals(elapsed=cython.double)
     cpdef double _memory_dt(self, double timestamp) except? -1
+    @cython.locals(limited_price=cython.double)
+    cpdef (double, double) _limit_price_oracle(self, double price, double timestamp)
     @cython.locals(old_price=cython.double, old_dfee=cython.double, dt=cython.double,
                    limited_price=cython.double, ratio=cython.double, price_ratio=cython.double)
-    cpdef (double, double) _limit_price_oracle(self, double price, double timestamp)
+    cpdef double _limit(self, double price, double timestamp) except? -1
     cpdef (double, double) _price_oracle_view(self, timestamp)
     @cython.locals(price=cython.double)
     cpdef (double, double) _price_oracle_at(self, double timestamp)

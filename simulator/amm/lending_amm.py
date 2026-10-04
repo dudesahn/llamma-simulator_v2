@@ -82,6 +82,7 @@ _cube_price = 0.0
 _cube_value = 0.0
 _ratio_A = 0.0
 _ratio_value = 0.0
+_limit_fee = 0.0  # oracle-memory fee of the last LendingAMM._limit()
 
 # A batch replay revisits each oracle row once per position, so it can keep each
 # row's cube in a table. _cube_row() names the row being replayed; _cube() uses
@@ -315,6 +316,7 @@ class LendingAMM:
         self._observe(p, _optional_timestamp(timestamp), missing=timestamp is None)
 
     def _observe(self, p, timestamp, missing=False):
+        """Observe the oracle; p_oracle becomes the limited price. Return its memory fee."""
         # Only the public None adapter may request a missing clock. Replay
         # timestamps are explicit and must be finite before any state changes.
         if missing:
@@ -330,9 +332,8 @@ class LendingAMM:
         self._has_raw_p_oracle = True
         self._current_timestamp = timestamp
         self.prev_p_oracle = self.p_oracle
-        snapshot = self._limit_price_oracle(p, timestamp)
-        self.p_oracle, _ = snapshot
-        return snapshot
+        self.p_oracle = self._limit(p, timestamp)
+        return _limit_fee
 
     def dynamic_fee(self, n_band, timestamp: float | None = None):
         """Replicates on-chain logic: max(base fee, oracle-memory fee, distance fee)."""
@@ -358,6 +359,15 @@ class LendingAMM:
         return self.PREV_P_O_DELAY - min(self.PREV_P_O_DELAY, elapsed)
 
     def _limit_price_oracle(self, price: float, timestamp: float) -> tuple[float, float]:
+        limited_price = self._limit(price, timestamp)
+        return limited_price, _limit_fee
+
+    def _limit(self, price: float, timestamp: float) -> float:
+        """Return the limited oracle price and leave its oracle-memory fee in _limit_fee.
+
+        Returning one float lets compiled callers skip a per-call exception check.
+        """
+        global _limit_fee
         if timestamp == NO_TIMESTAMP:
             timestamp = self._normalize_timestamp(timestamp)
         old_price = self.old_p_oracle
@@ -379,7 +389,8 @@ class LendingAMM:
             # The on-chain cap of 1 - 1e-18 rounds to 1.0 as a float.
             ratio = min(max(ratio, 0.0), 1.0)
 
-        return limited_price, ratio
+        _limit_fee = ratio
+        return limited_price
 
     def _price_oracle_view(self, timestamp: float | None) -> tuple[float, float]:
         return self._price_oracle_at(_optional_timestamp(timestamp))

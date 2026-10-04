@@ -49,7 +49,8 @@ def _calculate_loss(
     else:
         amm = workspace
         amm.reset(oracle_price, A, fee, dynamic_fee_multiplier, initial_state)
-    snapshot = amm._observe(oracle_price, timestamp=timestamp)
+    memory_fee = amm._observe(oracle_price, timestamp=timestamp)
+    oracle_now = amm.p_oracle
     if table_row >= 0:
         _cube_row(oracle_price, table_row)
     p0 = amm.p_oracle * (1 - position_shift)
@@ -76,7 +77,8 @@ def _calculate_loss(
         low = float(prices_for_simulation[i, 3])
         oracle_price = float(oracle_prices_for_simulation[i])
         if i:
-            snapshot = amm._observe(oracle_price, timestamp=t)
+            memory_fee = amm._observe(oracle_price, timestamp=t)
+            oracle_now = amm.p_oracle
             if table_row >= 0:
                 _cube_row(oracle_price, table_row + i)
 
@@ -87,15 +89,15 @@ def _calculate_loss(
         # Distance fees can only increase the base/oracle fee. Skip the band
         # search when even that minimum fee makes this direction unprofitable.
         current_price, lower_price, upper_price = amm._trade_prices()
-        antifee = fee_multiplier(max(amm.fee, snapshot[1]))
+        antifee = fee_multiplier(max(amm.fee, memory_fee))
         # Bounds apply to raw prices. Applying fees to these bounds could skip
         # a tiny exchange whose oracle-memory write changes later trades.
         if high_external > upper_price and high_external / antifee > current_price:
-            high = find_target_price(amm, high_external, snapshot[0], snapshot[1], is_up=True)
+            high = find_target_price(amm, high_external, oracle_now, memory_fee, is_up=True)
             if high > current_price:
                 amm.trade_to_price(high_external)
-                snapshot = amm._price_oracle_at(t)
-                antifee = fee_multiplier(max(amm.fee, snapshot[1]))
+                oracle_now, memory_fee = amm._price_oracle_at(t)
+                antifee = fee_multiplier(max(amm.fee, memory_fee))
                 current_price, lower_price, upper_price = amm._trade_prices()
 
         # Not correct for dynamic fees which are too high
@@ -106,7 +108,7 @@ def _calculate_loss(
         #         assert amm.bands_x[n] > 0
 
         if low_external < lower_price and low_external * antifee < current_price:
-            low = find_target_price(amm, low_external, snapshot[0], snapshot[1], is_up=False)
+            low = find_target_price(amm, low_external, oracle_now, memory_fee, is_up=False)
             if low < current_price:
                 amm.trade_to_price(low_external)
 
